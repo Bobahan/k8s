@@ -1,0 +1,20 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg-cluster
+spec:
+  instances: 3
+
+  storage:
+    storageClass: standard
+    size: 2Gi
+
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+      secret:
+        name: pg-user-secret
+
+  superuserSecret:
+    name: pg-superuser-secret

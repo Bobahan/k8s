@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: golang-deployment
+spec:
+  selector:
+    matchLabels:
+      app: golang
+  # Image Update Policy
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: golang
+    spec:
+      # Node Distribution Policy
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: golang
+      # Golang Pod
+      containers:
+        - name: go-app-container
+          image: go-processing:1.2
+          imagePullPolicy: Never
+          ports:
+          - containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 5
+          # Resources
+          resources:
+            requests:
+              cpu: "100m"
+            limits:
+              cpu: "200m"
+          # Env
+          env:
+            - name: PG_HOST
+              value: pg-cluster-rw
+            - name: PG_PORT
+              value: "5432"
+            - name: PG_USER
+              valueFrom:
+                secretKeyRef:
+                  name: pg-user-secret
+                  key: username
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-user-secret
+                  key: password
+            - name: PG_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: postgres-dsn
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: golang-service
+spec:
+  selector:
+    app: golang
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
